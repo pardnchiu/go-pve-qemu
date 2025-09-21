@@ -3,7 +3,7 @@ package config
 import (
 	"net/http"
 
-	"goQemu/internal/handler"
+	"guthub.com/pardnchiu/go-qemu/internal/handler"
 
 	"github.com/gin-gonic/gin"
 )

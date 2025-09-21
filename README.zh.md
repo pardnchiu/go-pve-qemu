@@ -1,9 +1,6 @@
-> [!Note]
-> This content is translated by LLM. Original text can be found [here](README.zh.md)
-
 # Go Qemu - Proxmox VM API
 
-> Go Qemu is a Proxmox VE virtual machine management API service developed in Go, providing VM creation, management, and control functionalities. Supports automated deployment of Debian, Ubuntu, RockyLinux and other operating systems.
+> Go Qemu 是基於 Go 語言開發的 Proxmox VE 虛擬機管理 API 服務，提供虛擬機創建、管理和控制功能。支援 Debian、Ubuntu、RockyLinux 等作業系統的自動化部署。
 
 [![pkg](https://pkg.go.dev/badge/github.com/pardnchiu/go-qemu.svg)](https://pkg.go.dev/github.com/pardnchiu/go-qemu)
 [![version](https://img.shields.io/github/v/tag/pardnchiu/go-qemu?label=release)](https://github.com/pardnchiu/go-qemu/releases)
@@ -11,35 +8,35 @@
 [![readme](https://img.shields.io/badge/readme-EN-white)](README.md)
 [![readme](https://img.shields.io/badge/readme-ZH-white)](README.zh.md)
 
-## Features
+## 核心特色
 
-### Complete VM Lifecycle Management
-- Support multiple Linux distribution automatic installation
-- Real-time SSE streaming installation progress feedback
-- Smart IP address allocation and management
-- Complete SSH key configuration
+### 完整虛擬機生命週期管理
+- 支援多種 Linux 發行版本自動安裝
+- 即時 SSE 串流安裝進度回饋
+- 智能 IP 地址分配與管理
+- 完整的 SSH 金鑰配置
 
-### Multi-node Cluster Support
-- Support Proxmox VE cluster environment
-- Remote node SSH operation support
-- Unified request API for multi-nodes
+### 多節點叢集支援
+- 支援 Proxmox VE 叢集環境
+- 遠端節點 SSH 操作支援
+- 多節點統一請求 API
 
-### Security Design
-- IP whitelist access control
-- Private network restricted access
-- SSH key authentication mechanism
+### 安全性設計
+- IP 白名單存取控制
+- 私有網路限制存取
+- SSH 金鑰認證機制
 
-## Usage
+## 如何使用
 
-### Health Check
+### 健康檢查
 ```
 GET /api/health
 ```
 
-### Virtual Machine Management
+### 虛擬機管理
 
-#### Create Virtual Machine
-> Supported OS
+#### 創建虛擬機
+> 支援 OS
 > - Debian: 11, 12, 13
 > - RockyLinux: 8, 9, 10
 > - Ubuntu: 20.04, 22.04, 24.04  
@@ -49,95 +46,95 @@ POST /api/vm/install
 
 ```json
 {
-  "id": 101,                                          // Optional, VM ID, auto-assign if not specified
-  "name": "test-vm",                                  // VM name
-  "node": "pve1",                                     // Optional, specify node name
-  "os": "ubuntu",                                     // Required, supports: debian, ubuntu, rockylinux
-  "version": "22.04",                                 // Required, OS version
-  "cpu": 2,                                           // vCPU cores, default 2
-  "ram": 2048,                                        // RAM size (MB), default 2048
-  "disk": "20G",                                      // Disk size, default 16G
-  "passwd": "password123",                            // SSH password, default "passwd"
-  "pubkey": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5..."     // Optional, SSH public key
+  "id": 101,                                          // 可選，VM ID，不指定則自動分配
+  "name": "test-vm",                                  // VM 名稱
+  "node": "pve1",                                     // 可選，指定節點名稱
+  "os": "ubuntu",                                     // 必填，支援: debian, ubuntu, rockylinux
+  "version": "22.04",                                 // 必填，作業系統版本
+  "cpu": 2,                                           // vCPU 核心數，預設 2
+  "ram": 2048,                                        // RAM 大小 (MB)，預設 2048
+  "disk": "20G",                                      // 硬碟大小，預設 16G
+  "passwd": "password123",                            // SSH 密碼，預設 "passwd"
+  "pubkey": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5..."     // 可選，SSH 公鑰
 }
 ```
 
-**SSE Response**
+**SSE 回應**
 ```javascript
 data: {"step":"preparation > checking VMID","status":"processing","message":"[*] using specified VMID: 101"}
 data: {"step":"VM creation > creating VM","status":"success","message":"[+] VM created successfully (2.45s)"}
 ```
 
-#### Start Virtual Machine
+#### 啟動虛擬機
 ```
 POST /api/vm/{id}/start
 ```
 
-**SSE Response**
+**SSE 回應**
 ```javascript
 data: {"step":"starting VM","status":"success","message":"[+] VM starting (1.23s)"}
 data: {"step":"waiting for SSH","status":"success","message":"[+] VM is ready (15.67s)"}
 ```
 
-#### Reboot Virtual Machine
+#### 重啟虛擬機
 ```
 POST /api/vm/{id}/reboot
 ```
 
-**SSE Response**
+**SSE 回應**
 ```javascript
 data: {"step":"rebooting VM","status":"success","message":"[+] VM rebooting (1.23s)"}
 data: {"step":"waiting for SSH","status":"success","message":"[+] VM is ready (15.67s)"}
 ```
 
-#### Virtual Machine Status
+#### 虛擬機狀態
 ```
 GET /api/vm/{id}/status
 ```
 
-#### Shutdown Virtual Machine
+#### 關閉虛擬機
 ```
 POST /api/vm/{id}/shutdown
 ```
 
-#### Stop Virtual Machine (Force shutdown)
+#### 停止虛擬機（強制關機）
 ```
 POST /api/vm/{id}/stop
 ```
 
-#### Remove Virtual Machine
+#### 移除虛擬機
 ```
 POST /api/vm/{id}/destroy
 ```
 
-## Environment Configuration
+## 環境配置
 
-### Required Environment Variables
+### 必要環境變數
 ```bash
 PORT=8080
 
-# Main node name
+# 主要節點名稱
 MAIN_NODE=PVE1
 
-# Network gateway
+# 網路閘道
 GATEWAY=10.0.0.1
 
-# Allowed access IPs (comma separated, 0.0.0.0 allows all)
+# 允許存取的 IP（逗號分隔，0.0.0.0 允許所有）
 ALLOW_IPS=0.0.0.0
 
-# Node IP configuration
+# 節點 IP 配置
 NODE_PVE1=10.0.0.2
 NODE_PVE2=10.0.0.3
 NODE_PVE3=10.0.0.4
 
-# IP allocation range
+# IP 分配範圍
 ASSIGN_IP_START=100
 ASSIGN_IP_END=254
 ```
 
-### Initialization Scripts
+### 初始化腳本
 
-The system automatically executes corresponding initialization scripts:
+系統會自動執行對應的初始化腳本：
 ```
 sh/
 ├── debian_11.sh
@@ -151,9 +148,9 @@ sh/
 └── rockylinux_10.sh
 ```
 
-## Examples
+## 使用範例
 
-### Create Virtual Machine
+### 創建虛擬機
 ```bash
 curl -X POST http://localhost:8080/api/vm/install \
   -H "Content-Type: application/json" \
@@ -168,29 +165,29 @@ curl -X POST http://localhost:8080/api/vm/install \
   }'
 ```
 
-### Manage Virtual Machine
+### 管理虛擬機
 ```bash
-# Get status
+# 獲取狀態
 curl http://localhost:8080/api/vm/101/status
 
-# Start
+# 啟動
 curl -X POST http://localhost:8080/api/vm/101/start
 
-# Stop
+# 停止
 curl -X POST http://localhost:8080/api/vm/101/stop
 
-# Reboot
+# 重啟
 curl -X POST http://localhost:8080/api/vm/101/reboot
 
-# Destroy
+# 銷毀
 curl -X POST http://localhost:8080/api/vm/101/destroy
 ```
 
-## License
+## 授權條款
 
-This source code project is licensed under the [MIT](LICENSE) License.
+此原始碼專案採用 [MIT](LICENSE) 授權條款。
 
-## Author
+## 作者
 
 <img src="https://avatars.githubusercontent.com/u/25631760" align="left" width="96" height="96" style="margin-right: 0.5rem;">
 

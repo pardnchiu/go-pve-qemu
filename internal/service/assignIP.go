@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"fmt"
-	"goQemu/internal/model"
 	"net"
 	"os"
 	"os/exec"
@@ -12,6 +11,8 @@ import (
 	"strconv"
 	"sync"
 	"time"
+
+	"guthub.com/pardnchiu/go-qemu/internal/model"
 )
 
 func (s *Service) assignIP() (string, int, error) {

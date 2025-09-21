@@ -6,7 +6,7 @@ import (
 	"os/exec"
 	"strings"
 
-	"goQemu/internal/model"
+	"guthub.com/pardnchiu/go-qemu/internal/model"
 
 	"github.com/gin-gonic/gin"
 )

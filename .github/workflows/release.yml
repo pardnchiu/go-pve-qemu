@@ -1,0 +1,39 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.25'
+    
+    - name: Get package name
+      id: package
+      run: echo "name=$(basename ${{ github.repository }})" >> $GITHUB_OUTPUT
+    
+    - name: Build
+      run: go build -v -o app ./cmd/api
+    
+    - name: Create archives
+      run: |
+        # 版本檔案
+        tar -czf ${{ steps.package.outputs.name }}@${{ github.ref_name }}.tar.gz app
+        
+        # latest 檔案
+        tar -czf ${{ steps.package.outputs.name }}@latest.tar.gz app
+    
+    - name: Create Release
+      uses: softprops/action-gh-release@v2
+      with:
+        files: |
+          ${{ steps.package.outputs.name }}@${{ github.ref_name }}.tar.gz
+        token: ${{ secrets.GITHUB_TOKEN }}

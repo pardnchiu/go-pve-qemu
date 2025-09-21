@@ -1,4 +1,4 @@
-module goQemu
+module guthub.com/pardnchiu/go-qemu
 
 go 1.25.0
 

@@ -5,9 +5,9 @@ import (
 	"log"
 	"os"
 
-	"goQemu/internal/config"
-	"goQemu/internal/handler"
-	"goQemu/internal/service"
+	"guthub.com/pardnchiu/go-qemu/internal/config"
+	"guthub.com/pardnchiu/go-qemu/internal/handler"
+	"guthub.com/pardnchiu/go-qemu/internal/service"
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"

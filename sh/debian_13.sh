@@ -1,9 +1,6 @@
 #!/bin/bash
 set -e
 
-echo "設定使用者密碼為 passwd"
-echo -e "passwd\npasswd" | passwd
-
 # 直接編輯 shadow 檔案，完全重設該使用者的記錄
 USERNAME=$(whoami)
 ENCRYPTED_PASSWD=$(openssl passwd -6 passwd)

@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"goQemu/internal/service"
+	"guthub.com/pardnchiu/go-qemu/internal/service"
 
 	"github.com/gin-gonic/gin"
 )
