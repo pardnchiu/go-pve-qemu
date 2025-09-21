@@ -107,9 +107,8 @@ echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
 echo "setting up script sysinfo"
 sudo curl -f -o /usr/local/bin/sysinfo https://gist.githubusercontent.com/pardnchiu/561ef0581911eac7aed33c898a1a2b21/raw/f0e2524de2328448a781863f7800d6f8bdfbd2f4/sysinfo
 sudo chmod +x /usr/local/bin/sysinfo
-sudo cp -f /usr/local/bin/sysinfo /etc/update-motd.d/99-custom
-sudo chmod +x /etc/update-motd.d/99-custom
-sudo run-parts /etc/update-motd.d/
+sudo cp -f /usr/local/bin/sysinfo /etc/profile.d/ssh-motd.sh
+sudo chmod +x /etc/profile.d/ssh-motd.sh
 
 echo "cleaning up"
 sudo apt-get clean

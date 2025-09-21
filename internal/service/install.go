@@ -329,6 +329,8 @@ func (s *Service) Install(config *model.Config, c *gin.Context) error {
 	}
 	elapsed = time.Since(stepStart)
 
+	s.RecordOSUser(config.ID, config.OS)
+
 	time.Sleep(5 * time.Second)
 	step = "VM initialization > finalizing"
 	s.SSE(c, step, "success", fmt.Sprintf("[+] VM is ready (%.2fs)", elapsed.Seconds()))
