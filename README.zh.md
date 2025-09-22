@@ -1,6 +1,7 @@
 # Go Qemu - Proxmox VM API
 
-> Go Qemu 是基於 Go 語言開發的 Proxmox VE 虛擬機管理 API 服務，提供虛擬機創建、管理和控制功能。支援 Debian、Ubuntu、RockyLinux 等作業系統的自動化部署。
+> Go Qemu 是基於 Go 語言開發的 Proxmox VE 虛擬機管理 API 服務，**自動下載官方映像檔並完成端到端部署**。支援 Debian、Ubuntu、RockyLinux 的**一鍵式自動化部署**。
+
 
 [![pkg](https://pkg.go.dev/badge/github.com/pardnchiu/go-qemu.svg)](https://pkg.go.dev/github.com/pardnchiu/go-qemu)
 [![version](https://img.shields.io/github/v/tag/pardnchiu/go-qemu?label=release)](https://github.com/pardnchiu/go-qemu/releases)
@@ -11,7 +12,7 @@
 ## 核心特色
 
 ### 完整虛擬機生命週期管理
-- 支援多種 Linux 發行版本自動安裝
+- 支援多種 Linux 發行版本（**官方映像檔自動下載與部署**）
 - 即時 SSE 串流安裝進度回饋
 - 智能 IP 地址分配與管理
 - 完整的 SSH 金鑰配置
@@ -21,10 +22,11 @@
 - 遠端節點 SSH 操作支援
 - 多節點統一請求 API
 
-### 安全性設計
-- IP 白名單存取控制
-- 私有網路限制存取
-- SSH 金鑰認證機制
+### 零配置部署
+- 自動從官方源下載最新的雲端映像檔，無需手動準備映像檔
+  - Debian: 從 `cloud.debian.org` 下載
+  - RockyLinux: 從 `dl.rockylinux.org` 下載
+  - Ubuntu: 從 `cloud-images.ubuntu.com` 下載  
 
 ## 如何使用
 

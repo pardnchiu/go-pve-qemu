@@ -1,125 +1,135 @@
 package service
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 )
 
-var maxTry = 3
-var nowTry = 0
+var (
+	maxTry   = 3
+	nowTry   = 0
+	filename = ".go_qemu_record"
+)
+
+func readRecord() (map[int]string, error) {
+	list := make(map[int]string)
+	data, err := os.ReadFile(filename)
+	if err != nil {
+		return list, err
+	}
+
+	if len(data) == 0 {
+		return list, nil
+	}
+
+	lines := strings.Split(strings.TrimSpace(string(data)), "\n")
+	for _, line := range lines {
+		if line == "" {
+			continue
+		}
+		parts := strings.Split(line, ":")
+		if len(parts) == 2 {
+			vmid, err := strconv.Atoi(parts[0])
+			if err != nil {
+				continue
+			}
+			list[vmid] = parts[1]
+		}
+	}
+	return list, nil
+}
 
 func (s *Service) GetOSUser(vmid int) (string, error) {
-	data, err := os.ReadFile("osRecord.json")
-	if err != nil {
-		fmt.Printf("failed to read file: %v\n", err)
-		return "", err
-	}
+	for retry := 0; retry < maxTry; retry++ {
+		records, err := readRecord()
+		if err != nil {
+			if os.IsNotExist(err) {
+				return "", fmt.Errorf("no record file found, please create VM first")
+			}
 
-	var osRecord map[string]string
-	err = json.Unmarshal(data, &osRecord)
-	if err != nil {
-		fmt.Printf("failed to unmarshal JSON: %v\n", err)
-		return "", err
-	}
+			if retry == maxTry-1 {
+				return "", fmt.Errorf("failed to read records")
+			}
 
-	osUser := osRecord[strconv.Itoa(vmid)]
-	if osUser == "" {
+			continue
+		}
+
+		if osUser, exists := records[vmid]; exists {
+			if osUser == "rockylinux" {
+				osUser = "rocky"
+			}
+			return osUser, nil
+		}
+
 		return "", fmt.Errorf("no OS user found for VMID %d", vmid)
 	}
 
-	if osUser == "rockylinux" {
-		osUser = "rocky"
-	}
-
-	return osUser, nil
+	return "", fmt.Errorf("max retries reached")
 }
 
 func (s *Service) RecordOSUser(vmid int, osUser string) error {
-	data, err := os.ReadFile("osRecord.json")
-	if err != nil {
-		fmt.Printf("failed to read file: %v\n", err)
-	}
-
-	var osRecord map[string]string
-	if err == nil {
-		err = json.Unmarshal(data, &osRecord)
-		if err != nil {
-			fmt.Printf("failed to unmarshal JSON: %v\n", err)
-			osRecord = make(map[string]string)
+	for retry := 0; retry < maxTry; retry++ {
+		records, err := readRecord()
+		if err != nil && os.IsNotExist(err) {
+			fmt.Printf("file does not exist, creating new one\n")
+			records = make(map[int]string)
+		} else if err != nil {
+			if retry == maxTry-1 {
+				return err
+			}
+			continue
 		}
-	} else {
-		osRecord = make(map[string]string)
-	}
 
-	osRecord[strconv.Itoa(vmid)] = osUser
-	updatedData, err := json.MarshalIndent(osRecord, "", "  ")
-	if err != nil {
-		fmt.Printf("failed to marshal JSON: %v\n", err)
-		nowTry++
-		if nowTry < maxTry {
-			return s.RecordOSUser(vmid, osUser)
-		} else {
-			nowTry = 0
+		records[vmid] = osUser
+		lines := []string{}
+		for k, v := range records {
+			lines = append(lines, fmt.Sprintf("%d:%s", k, v))
 		}
-		return err
-	}
+		content := strings.Join(lines, "\n") + "\n"
 
-	err = os.WriteFile("osRecord.json", updatedData, 0644)
-	if err != nil {
-		fmt.Printf("failed to write file: %v\n", err)
-		nowTry++
-		if nowTry < maxTry {
-			return s.RecordOSUser(vmid, osUser)
-		} else {
-			nowTry = 0
+		if err := os.WriteFile(filename, []byte(content), 0644); err != nil {
+			if retry == maxTry-1 {
+				return err
+			}
+			continue
 		}
-		return err
+		return nil
 	}
-
-	return nil
+	return fmt.Errorf("max retries reached")
 }
 
-func (s *Service) DeleteOSUser(vmid int) {
-	data, err := os.ReadFile("osRecord.json")
-	if err != nil {
-		fmt.Printf("failed to read file: %v\n", err)
-	}
-
-	var osRecord map[string]string
-	if err == nil {
-		err = json.Unmarshal(data, &osRecord)
-		if err != nil {
-			fmt.Printf("failed to unmarshal JSON: %v\n", err)
-			osRecord = make(map[string]string)
+func (s *Service) DeleteOSUser(vmid int) error {
+	for retry := 0; retry < maxTry; retry++ {
+		records, err := readRecord()
+		if err != nil && os.IsNotExist(err) {
+			return nil
+		} else if err != nil {
+			if retry == maxTry-1 {
+				return err
+			}
+			continue
 		}
-	} else {
-		osRecord = make(map[string]string)
-	}
 
-	delete(osRecord, strconv.Itoa(vmid))
-	updatedData, err := json.MarshalIndent(osRecord, "", "  ")
-	if err != nil {
-		fmt.Printf("failed to marshal JSON: %v\n", err)
-		nowTry++
-		if nowTry < maxTry {
-			s.DeleteOSUser(vmid)
-		} else {
-			nowTry = 0
+		if _, exists := records[vmid]; !exists {
+			return nil
 		}
-		return
-	}
 
-	err = os.WriteFile("osRecord.json", updatedData, 0644)
-	if err != nil {
-		fmt.Printf("failed to write file: %v\n", err)
-		nowTry++
-		if nowTry < maxTry {
-			s.DeleteOSUser(vmid)
-		} else {
-			nowTry = 0
+		delete(records, vmid)
+		lines := []string{}
+		for k, v := range records {
+			lines = append(lines, fmt.Sprintf("%d:%s", k, v))
 		}
-		return
+		content := strings.Join(lines, "\n") + "\n"
+
+		if err := os.WriteFile(filename, []byte(content), 0644); err != nil {
+			if retry == maxTry-1 {
+				return err
+			}
+			continue
+		}
+		return nil
 	}
+	return fmt.Errorf("max retries reached")
 }

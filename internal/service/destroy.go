@@ -29,6 +29,9 @@ func (s *Service) Destroy(vmid int) error {
 			return err
 		}
 	}
-	s.DeleteOSUser(vmid)
+	err := s.DeleteOSUser(vmid)
+	if err != nil {
+		println("[-] failed to delete OS user record: %v", err)
+	}
 	return nil
 }

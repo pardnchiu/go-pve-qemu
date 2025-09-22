@@ -3,7 +3,7 @@
 
 # Go Qemu - Proxmox VM API
 
-> Go Qemu is a Proxmox VE virtual machine management API service developed in Go, providing VM creation, management, and control functionalities. Supports automated deployment of Debian, Ubuntu, RockyLinux and other operating systems.
+> Go Qemu is a Proxmox VE virtual machine management API service developed in Go, **automatically downloads official images and completes end-to-end deployment**. Supports **one-click automated deployment** for Debian, Ubuntu, and RockyLinux.
 
 [![pkg](https://pkg.go.dev/badge/github.com/pardnchiu/go-qemu.svg)](https://pkg.go.dev/github.com/pardnchiu/go-qemu)
 [![version](https://img.shields.io/github/v/tag/pardnchiu/go-qemu?label=release)](https://github.com/pardnchiu/go-qemu/releases)
@@ -11,23 +11,24 @@
 [![readme](https://img.shields.io/badge/readme-EN-white)](README.md)
 [![readme](https://img.shields.io/badge/readme-ZH-white)](README.zh.md)
 
-## Features
+## Key Features
 
-### Complete VM Lifecycle Management
-- Support multiple Linux distribution automatic installation
+### Complete Virtual Machine Lifecycle Management
+- Support for multiple Linux distributions (**automatic official image download and deployment**)
 - Real-time SSE streaming installation progress feedback
-- Smart IP address allocation and management
+- Intelligent IP address allocation and management
 - Complete SSH key configuration
 
 ### Multi-node Cluster Support
-- Support Proxmox VE cluster environment
+- Support for Proxmox VE cluster environments
 - Remote node SSH operation support
-- Unified request API for multi-nodes
+- Unified API for multi-node requests
 
-### Security Design
-- IP whitelist access control
-- Private network restricted access
-- SSH key authentication mechanism
+### Zero-configuration Deployment
+- Automatically downloads the latest cloud images from official sources, no manual image preparation required
+  - Debian: download from `cloud.debian.org`
+  - RockyLinux: download from `dl.rockylinux.org`
+  - Ubuntu: download from `cloud-images.ubuntu.com`
 
 ## Usage
 
@@ -42,14 +43,14 @@ GET /api/health
 > Supported OS
 > - Debian: 11, 12, 13
 > - RockyLinux: 8, 9, 10
-> - Ubuntu: 20.04, 22.04, 24.04  
+> - Ubuntu: 20.04, 22.04, 24.04
 ```
 POST /api/vm/install
 ```
 
 ```json
 {
-  "id": 101,                                          // Optional, VM ID, auto-assign if not specified
+  "id": 101,                                          // Optional, VM ID, auto-assigned if not specified
   "name": "test-vm",                                  // VM name
   "node": "pve1",                                     // Optional, specify node name
   "os": "ubuntu",                                     // Required, supports: debian, ubuntu, rockylinux
@@ -122,7 +123,7 @@ MAIN_NODE=PVE1
 # Network gateway
 GATEWAY=10.0.0.1
 
-# Allowed access IPs (comma separated, 0.0.0.0 allows all)
+# Allowed access IPs (comma-separated, 0.0.0.0 allows all)
 ALLOW_IPS=0.0.0.0
 
 # Node IP configuration
@@ -130,12 +131,12 @@ NODE_PVE1=10.0.0.2
 NODE_PVE2=10.0.0.3
 NODE_PVE3=10.0.0.4
 
-# IP allocation range
+# IP assignment range
 ASSIGN_IP_START=100
 ASSIGN_IP_END=254
 
-# * VM root password
-# * default is 8 spaces (no password)
+# VM root password
+# Default is 8 spaces (no password)
 VM_ROOT_PASSWORD=
 ```
 
@@ -155,7 +156,7 @@ sh/
 └── rockylinux_10.sh
 ```
 
-## Examples
+## Usage Examples
 
 ### Create Virtual Machine
 ```bash
@@ -192,7 +193,7 @@ curl -X POST http://localhost:8080/api/vm/101/destroy
 
 ## License
 
-This source code project is licensed under the [MIT](LICENSE) License.
+This source code project is licensed under the [MIT](LICENSE) license.
 
 ## Author
 

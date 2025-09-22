@@ -10,16 +10,16 @@ sed -i "/^${USERNAME}:/c\\${USERNAME}:${ENCRYPTED_PASSWD}:19000:0:99999:7:::" /e
 echo "${USERNAME} ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers.d/${USERNAME}
 
 # 參數處理
-ROOT_PASSWORD="${1:-        }"  # 預設 8 個空白
+ROOT_PASSWORD="${1:-0123456789}"
 echo "change root password"
 echo "root:${ROOT_PASSWORD}" | sudo chpasswd
 
 # 禁止修改密碼
 echo "disable password change"
-sudo chage -M 0 $(whoami)     # 密碼禁止修改
-sudo chage -E -1 $(whoami)    # 但帳號永不過期
-sudo chage -M 0 root          # root 密碼也禁止修改
-sudo chage -E -1 root         # root 帳號永不過期
+sudo chage -M -1 $(whoami)
+sudo chage -E -1 $(whoami)
+sudo chage -M -1 root
+sudo chage -E -1 root
 
 # 備份並移除密碼修改工具
 echo "remove passwd"
