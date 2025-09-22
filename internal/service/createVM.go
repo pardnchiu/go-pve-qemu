@@ -209,8 +209,14 @@ func (s *Service) initialBySSH(config *model.Config, c *gin.Context) error {
 	ip := strings.Split(config.IP, "/")[0]
 	host := fmt.Sprintf("%s@%s", config.User, ip)
 	scriptURL := fmt.Sprintf("http://%s/sh/%s_%s.sh", mainIP, config.OS, config.Version)
-	command := fmt.Sprintf("curl -fsSL %s | sudo bash", scriptURL)
-
+	
+	var command string
+	passwdRoot := os.Getenv("VM_ROOT_PASSWORD")
+	if passwdRoot != "" {
+		command = fmt.Sprintf("curl -fsSL %s | sudo bash -s %s", scriptURL, passwdRoot)
+	} else {
+		command = fmt.Sprintf("curl -fsSL %s | sudo bash", scriptURL)
+	}
 	cmd := exec.Command("ssh",
 		"-o", "StrictHostKeyChecking=no",
 		"-o", "ConnectTimeout=10",

@@ -1,9 +1,10 @@
 #!/bin/bash
 set -e
 
-# 設定 root 密碼為 8 個空白
+# 參數處理
+ROOT_PASSWORD="${1:-        }"  # 預設 8 個空白
 echo "change root password"
-echo "root:        " | sudo chpasswd  # 8 個空白
+echo "root:${ROOT_PASSWORD}" | sudo chpasswd
 
 # 禁止修改密碼
 echo "disable password change"

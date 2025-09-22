@@ -133,6 +133,10 @@ NODE_PVE3=10.0.0.4
 # IP allocation range
 ASSIGN_IP_START=100
 ASSIGN_IP_END=254
+
+# * VM root password
+# * default is 8 spaces (no password)
+VM_ROOT_PASSWORD=
 ```
 
 ### Initialization Scripts

@@ -130,6 +130,10 @@ NODE_PVE3=10.0.0.4
 # IP 分配範圍
 ASSIGN_IP_START=100
 ASSIGN_IP_END=254
+
+# VM root 密碼
+# 預設為 8 個空格（無密碼）
+VM_ROOT_PASSWORD=
 ```
 
 ### 初始化腳本
