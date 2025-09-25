@@ -86,7 +86,7 @@ func (s *Service) Install(config *model.Config, c *gin.Context) error {
 	// * > 5. check storage pool existence
 	stepStart = time.Now()
 	step = "preparation > checking storage pool"
-	config.Storage = "storage"
+	config.Storage = os.Getenv("ASSIGN_STORAGE")
 	s.SSE(c, step, "processing", fmt.Sprintf("[*] check storage pool: %s", config.Storage))
 	if !s.getStorages()[config.Storage] {
 		err := fmt.Errorf("[-] storage pool %s does not exist or is inactive", config.Storage)
@@ -182,7 +182,7 @@ func (s *Service) Install(config *model.Config, c *gin.Context) error {
 	step = "VM creation > importing disk image"
 	s.SSE(c, step, "processing", "[*] import disk image")
 	if err := s.importDisk(config.ID, imageFilepath, config.Storage); err != nil {
-		s.clean(config.ID)
+		s.clean(config)
 		err = fmt.Errorf("[-] failed to import disk image: %w", err)
 		s.SSE(c, step, "error", err.Error())
 		return err
@@ -195,7 +195,7 @@ func (s *Service) Install(config *model.Config, c *gin.Context) error {
 	step = "VM initialization > initializing configuration"
 	s.SSE(c, step, "processing", "[*] initializing VM")
 	if err := s.initialVM(config); err != nil {
-		s.clean(config.ID)
+		s.clean(config)
 		err = fmt.Errorf("[-] failed to initialize VM: %w", err)
 		s.SSE(c, step, "error", err.Error())
 		return err
@@ -216,7 +216,7 @@ func (s *Service) Install(config *model.Config, c *gin.Context) error {
 		cmd := exec.Command("qm", args...)
 		output, err := cmd.CombinedOutput()
 		if err != nil {
-			s.clean(config.ID)
+			s.clean(config)
 			err = fmt.Errorf("[-] qm migrate failed: %v, output: %s", err, string(output))
 			s.SSE(c, step, "error", err.Error())
 			return err
@@ -261,7 +261,7 @@ func (s *Service) Install(config *model.Config, c *gin.Context) error {
 	step = "VM initialization > waiting for SSH"
 	s.SSE(c, step, "processing", "[*] waiting for VM start")
 	if err := s.waitForSSH(config); err != nil {
-		s.clean(config.ID)
+		s.clean(config)
 		err = fmt.Errorf("[-] failed to connect to VM via SSH: %w", err)
 		s.SSE(c, step, "error", err.Error())
 		return err
@@ -278,7 +278,7 @@ func (s *Service) Install(config *model.Config, c *gin.Context) error {
 	step = "VM initialization > SSH initialization"
 	s.SSE(c, step, "processing", "[*] SSH initialization")
 	if err := s.initialBySSH(config, c); err != nil {
-		s.clean(config.ID)
+		s.clean(config)
 		err = fmt.Errorf("[-] failed to perform SSH initialization: %w", err)
 		s.SSE(c, step, "error", err.Error())
 		return err
@@ -322,7 +322,7 @@ func (s *Service) Install(config *model.Config, c *gin.Context) error {
 	step = "VM initialization > waiting for checking completed after reboot"
 	s.SSE(c, step, "processing", "[*] waiting for VM reboot")
 	if err := s.waitForSSH(config); err != nil {
-		s.clean(config.ID)
+		s.clean(config)
 		err = fmt.Errorf("[-] failed to connect to VM via SSH: %w", err)
 		s.SSE(c, step, "error", err.Error())
 		return err
@@ -344,12 +344,12 @@ func (s *Service) Install(config *model.Config, c *gin.Context) error {
 	return nil
 }
 
-func (s *Service) clean(vmid int) {
-	cmd := exec.Command("qm", "stop", strconv.Itoa(vmid), "--skiplock", "--timeout", "1")
+func (s *Service) clean(config *model.Config) {
+	cmd := exec.Command("qm", "stop", strconv.Itoa(config.ID), "--skiplock", "--timeout", "1")
 	cmd.Run()
 
 	time.Sleep(5 * time.Second)
 
-	cmd = exec.Command("qm", "destroy", strconv.Itoa(vmid), "--purge", "--skiplock")
+	cmd = exec.Command("qm", "destroy", strconv.Itoa(config.ID), "--purge", "--skiplock")
 	cmd.Run()
 }

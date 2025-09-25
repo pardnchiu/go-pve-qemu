@@ -1,2 +1,4 @@
 .DS_Store
 .go_qemu_record
+.go_qemu_pubkey_admin
+memo.md

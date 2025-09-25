@@ -29,5 +29,6 @@ func (s *Service) Stop(vmid int) error {
 			return err
 		}
 	}
+
 	return nil
 }

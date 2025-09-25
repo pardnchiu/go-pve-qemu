@@ -29,5 +29,6 @@ func (s *Service) Shutdown(vmid int) error {
 			return err
 		}
 	}
+
 	return nil
 }

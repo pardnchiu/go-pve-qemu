@@ -24,6 +24,7 @@ func (s *Service) Reboot(c *gin.Context, vmid int) error {
 	// * 1. Reboot VM
 	stepStart := time.Now()
 	isMain, _, ip := s.getVMIDsNode(vmid)
+
 	if isMain {
 		step = "rebooting VM"
 		s.SSE(c, step, "info", "[*] rebooting VM")

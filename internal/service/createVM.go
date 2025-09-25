@@ -38,10 +38,6 @@ func (s *Service) createVM(config *model.Config) error {
 		args = append(args, "--balloon", strconv.Itoa(sharingMemory))
 	}
 
-	// if config.Node != "" {
-	// 	args = append(args, "--node", config.Node)
-	// }
-
 	cmd := exec.Command("qm", args...)
 	return cmd.Run()
 }
@@ -90,7 +86,7 @@ func (s *Service) initialVM(config *model.Config) error {
 	}
 
 	// * 3. append .pubkey-admin content if exists
-	if adminPubkey, err := os.ReadFile(".pubkey-admin"); err == nil {
+	if adminPubkey, err := os.ReadFile(".go_qemu_pubkey_admin"); err == nil {
 		if _, err := file.Write(adminPubkey); err != nil {
 			return err
 		}
@@ -153,9 +149,17 @@ func (s *Service) initialVM(config *model.Config) error {
 	}
 
 	// * 12. resize disk to user specified size
-	cmd = exec.Command("qm", "resize", strconv.Itoa(config.ID), "scsi0", config.Disk)
-	if err := cmd.Run(); err != nil {
-		return err
+	// * add retry to avoid error
+	for i := 0; i < 3; i++ {
+		cmd = exec.Command("qm", "resize", strconv.Itoa(config.ID), "scsi0", config.Disk)
+		if err := cmd.Run(); err != nil {
+			if i == 2 {
+				return err
+			} else {
+				time.Sleep(5 * time.Second)
+				continue
+			}
+		}
 	}
 
 	// * 13. set IP and gateway to VM
@@ -165,18 +169,25 @@ func (s *Service) initialVM(config *model.Config) error {
 }
 
 func (s *Service) waitForSSH(config *model.Config) error {
-	ip := strings.Split(config.IP, "/")[0] // 取得純 IP 地址
-	maxRetries := 60                       // 最多等待 5 分鐘
+	ip := strings.Split(config.IP, "/")[0]
+	maxRetries := 60
 
 	for i := 0; i < maxRetries; i++ {
-		cmd := exec.Command("ssh", "-o", "ConnectTimeout=5", "-o", "StrictHostKeyChecking=no",
-			fmt.Sprintf("%s@%s", config.User, ip), "echo", "ready")
+		cmd := exec.Command("ssh",
+			"-o", "ConnectTimeout=5",
+			"-o", "StrictHostKeyChecking=no",
+			"-o", "UserKnownHostsFile=/dev/null",
+			"-o", "LogLevel=ERROR",
+			fmt.Sprintf("%s@%s", config.User, ip),
+			"echo",
+			"ready",
+		)
 		if err := cmd.Run(); err == nil {
 			return nil
 		}
 		time.Sleep(5 * time.Second)
 	}
-	return fmt.Errorf("SSH 連線逾時")
+	return fmt.Errorf("[-] SSH timeout")
 }
 
 func (s *Service) getMainIP() (string, error) {
@@ -209,7 +220,7 @@ func (s *Service) initialBySSH(config *model.Config, c *gin.Context) error {
 	ip := strings.Split(config.IP, "/")[0]
 	host := fmt.Sprintf("%s@%s", config.User, ip)
 	scriptURL := fmt.Sprintf("http://%s/sh/%s_%s.sh", mainIP, config.OS, config.Version)
-	
+
 	var command string
 	passwdRoot := os.Getenv("VM_ROOT_PASSWORD")
 	if passwdRoot != "" {
@@ -218,11 +229,11 @@ func (s *Service) initialBySSH(config *model.Config, c *gin.Context) error {
 		command = fmt.Sprintf("curl -fsSL %s | sudo bash", scriptURL)
 	}
 	cmd := exec.Command("ssh",
+		"-o", "ConnectTimeout=5",
 		"-o", "StrictHostKeyChecking=no",
-		"-o", "ConnectTimeout=10",
-		"-o", "ServerAliveInterval=60",
 		"-o", "UserKnownHostsFile=/dev/null",
 		"-o", "LogLevel=ERROR",
+		"-o", "ServerAliveInterval=60",
 		host,
 		command,
 	)
@@ -248,7 +259,7 @@ func (s *Service) initialBySSH(config *model.Config, c *gin.Context) error {
 		scanner := bufio.NewScanner(stdout)
 		for scanner.Scan() {
 			line := scanner.Text()
-			s.SSE(c, "SSH initialization", "processing", fmt.Sprintf("│   %s", line))
+			s.SSE(c, "SSH initialization", "processing", fmt.Sprintf("  %s", line))
 		}
 	}()
 
@@ -258,9 +269,9 @@ func (s *Service) initialBySSH(config *model.Config, c *gin.Context) error {
 			line := scanner.Text()
 			// 根據內容判斷是否為實際錯誤
 			if strings.Contains(line, "Error:") || strings.Contains(line, "Failed:") {
-				s.SSE(c, "SSH initialization", "processing", fmt.Sprintf("│   Error: %s", line))
+				s.SSE(c, "SSH initialization", "processing", fmt.Sprintf("  Error: %s", line))
 			} else {
-				s.SSE(c, "SSH initialization", "processing", fmt.Sprintf("│   %s", line))
+				s.SSE(c, "SSH initialization", "processing", fmt.Sprintf("  %s", line))
 			}
 		}
 	}()
@@ -285,8 +296,15 @@ func (s *Service) CheckAlive(c *gin.Context, os string, id int) error {
 	ip := fmt.Sprintf("%s.%d", ipPrefix, id)
 
 	for i := 0; i < maxRetries; i++ {
-		cmd := exec.Command("ssh", "-o", "ConnectTimeout=5", "-o", "StrictHostKeyChecking=no",
-			fmt.Sprintf("%s@%s", os, ip), "echo", "ready")
+		cmd := exec.Command("ssh",
+			"-o", "ConnectTimeout=5",
+			"-o", "StrictHostKeyChecking=no",
+			"-o", "UserKnownHostsFile=/dev/null",
+			"-o", "LogLevel=ERROR",
+			fmt.Sprintf("%s@%s", os, ip),
+			"echo",
+			"ready",
+		)
 		if err := cmd.Run(); err == nil {
 			return nil
 		}

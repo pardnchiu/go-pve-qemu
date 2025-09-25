@@ -26,7 +26,7 @@ func (s *Service) Start(c *gin.Context, vmid int) error {
 	isMain, _, ip := s.getVMIDsNode(vmid)
 	if isMain {
 		step = "starting VM"
-		s.SSE(c, step, "info", "[*] starting VM")
+		s.SSE(c, step, "info", "[*] starting")
 		cmd := exec.Command("qm", "start", strconv.Itoa(vmid))
 		if err := cmd.Run(); err != nil {
 			err = fmt.Errorf("[-] failed to start VM: %v", err)
