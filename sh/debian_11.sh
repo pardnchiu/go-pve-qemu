@@ -14,16 +14,14 @@ sudo chage -M -1 root
 sudo chage -E -1 root
 
 echo "remove password change tools"
-sudo mv /usr/bin/passwd /usr/bin/passwd.bak
-sudo mv /usr/bin/chpasswd /usr/bin/chpasswd.bak 2>/dev/null || true
-
+sudo mv /usr/bin/passwd /usr/bin/.passwd
+sudo mv /usr/bin/chpasswd /usr/bin/.chpasswd 2>/dev/null || true
 sudo tee /usr/bin/passwd > /dev/null << 'EOF'
 #!/bin/bash
 echo "already disabled by admin"
 exit 1
 EOF
 sudo chmod +x /usr/bin/passwd
-
 sudo tee /usr/bin/chpasswd > /dev/null << 'EOF'
 #!/bin/bash
 echo "already disabled by admin"
@@ -33,12 +31,17 @@ sudo chmod +x /usr/bin/chpasswd
 
 echo "waiting for package manager to be available"
 wait_for_apt() {
-  while ! apt-get check >/dev/null 2>&1; do
+  while sudo fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1 || \
+        sudo fuser /var/lib/apt/lists/lock >/dev/null 2>&1 || \
+        sudo fuser /var/cache/apt/archives/lock >/dev/null 2>&1; do
     sleep 1
   done
 }
-
 wait_for_apt
+
+sudo systemctl stop unattended-upgrades 2>/dev/null || true
+sudo systemctl disable unattended-upgrades 2>/dev/null || true
+sudo killall apt apt-get dpkg 2>/dev/null || true
 
 # 設定套件源
 echo "editing sources.list"
@@ -77,21 +80,20 @@ sudo timedatectl set-timezone Asia/Taipei
 # 設定系統參數
 echo "setting sysctl"
 echo "net.ipv4.icmp_echo_ignore_all = 1" | sudo tee -a /etc/sysctl.conf > /dev/null
-echo "net.ipv6.conf.all.disable_ipv6 = 1" | sudo tee -a /etc/sysctl.conf > /dev/null || true
 echo "fs.inotify.max_user_watches=524288" | sudo tee -a /etc/sysctl.conf > /dev/null
 sudo sysctl -p || true
 
 # 更新 GRUB 設定
 echo "updating GRUB configuration"
-sudo sed -i -e "s/GRUB_CMDLINE_LINUX=\"/GRUB_CMDLINE_LINUX=\"ipv6.disable=1 /g" /etc/default/grub
+sudo sed -i -e "s/GRUB_CMDLINE_LINUX=\"/GRUB_CMDLINE_LINUX=\"ipv6.disable=0 /g" /etc/default/grub
 sudo update-grub
 
 # 建立 swap 檔案
 echo "creating swap file"
 # 檢查是否已存在 swap 檔案
 if [ -f /swapfile ]; then
-    sudo swapoff /swapfile 2>/dev/null || true
-    sudo rm -f /swapfile
+  sudo swapoff /swapfile 2>/dev/null || true
+  sudo rm -f /swapfile
 fi
 
 # 建立新的 swap 檔案
@@ -108,6 +110,9 @@ sudo curl -f -o /usr/local/bin/sysinfo https://gist.githubusercontent.com/pardnc
 sudo chmod +x /usr/local/bin/sysinfo
 sudo cp -f /usr/local/bin/sysinfo /etc/profile.d/ssh-motd.sh
 sudo chmod +x /etc/profile.d/ssh-motd.sh
+
+echo "HISTCONTROL=ignorespace" >> ~/.bashrc
+source ~/.bashrc
 
 echo "cleaning up"
 sudo apt-get clean

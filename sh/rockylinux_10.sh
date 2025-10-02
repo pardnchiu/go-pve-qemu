@@ -15,61 +15,68 @@ sudo chage -E -1 root
 
 # 備份並移除密碼修改工具
 echo "remove passwd"
-mv /usr/bin/passwd /usr/bin/passwd.bak
-tee /usr/bin/passwd > /dev/null << 'EOF'
+sudo mv /usr/bin/passwd /usr/bin/.passwd
+sudo mv /usr/bin/chpasswd /usr/bin/.chpasswd 2>/dev/null || true
+
+sudo tee /usr/bin/passwd > /dev/null << 'EOF'
 #!/bin/bash
 echo "already disabled by admin"
 exit 1
 EOF
-chmod +x /usr/bin/passwd
+sudo chmod +x /usr/bin/passwd
+sudo tee /usr/bin/chpasswd > /dev/null << 'EOF'
+#!/bin/bash
+echo "already disabled by admin"
+exit 1
+EOF
+sudo chmod +x /usr/bin/chpasswd
 
 echo "waiting for package manager to be available"
 wait_for_dnf() {
-  while ! dnf repolist >/dev/null 2>&1; do
+  while sudo fuser /var/lib/rpm/.rpm.lock >/dev/null 2>&1 || \
+        sudo fuser /var/cache/dnf/metadata_lock.pid >/dev/null 2>&1; do
     sleep 1
   done
 }
-
 wait_for_dnf
 
 # 更新系統
 echo "upgrading packages"
-dnf update -y
+sudo dnf update -y
 
 # 安裝 EPEL 套件庫
 echo "install EPEL repository"
-dnf install -y epel-release
+sudo dnf install -y epel-release
 
 # 安裝基本套件
 echo "installing basic packages"
-dnf install -y wget curl tar zip unzip tree make nano vim git screen tmux htop iotop bc qemu-guest-agent
+sudo dnf install -y wget curl tar zip unzip tree make nano vim git screen tmux htop iotop bc qemu-guest-agent
 
 # 啟用 QEMU Guest Agent
 echo "enable qemu-guest-agent"
-systemctl enable qemu-guest-agent
+sudo systemctl enable qemu-guest-agent
 
 # 設定時區
 echo "setting timezone to Asia/Taipei"
-timedatectl set-timezone Asia/Taipei
+sudo timedatectl set-timezone Asia/Taipei
 
 # 設定系統參數
 echo "setting sysctl"
 echo "net.ipv4.icmp_echo_ignore_all = 1" | sudo tee -a /etc/sysctl.conf > /dev/null
-echo "net.ipv6.conf.all.disable_ipv6 = 1" | sudo tee -a /etc/sysctl.conf > /dev/null || true
 echo "fs.inotify.max_user_watches=524288" | sudo tee -a /etc/sysctl.conf > /dev/null
 sudo sysctl -p || true
 
 # 更新 GRUB 設定
 echo "updating GRUB configuration"
-sed -i -e "s/GRUB_CMDLINE_LINUX=\"/GRUB_CMDLINE_LINUX=\"ipv6.disable=1 /g" /etc/default/grub
-grub2-mkconfig -o /boot/grub2/grub.cfg
+sudo sed -i -e "s/GRUB_CMDLINE_LINUX=\"/GRUB_CMDLINE_LINUX=\"ipv6.disable=0 /g" /etc/default/grub
+sudo grub2-mkconfig -o /boot/grub2/grub.cfg
 
 # 建立 swap 檔案
 echo "creating swap file"
 # 檢查是否已存在 swap 檔案
 if [ -f /swapfile ]; then
-    sudo swapoff /swapfile 2>/dev/null || true
-    sudo rm -f /swapfile
+  sudo swapoff /swapfile 2>/dev/null || true
+  sudo rm -f /swapfile
 fi
 
 # 建立新的 swap 檔案
@@ -87,6 +94,9 @@ sudo chmod +x /usr/local/bin/sysinfo
 sudo cp -f /usr/local/bin/sysinfo /etc/profile.d/ssh-motd.sh
 sudo chmod +x /etc/profile.d/ssh-motd.sh
 
+echo "HISTCONTROL=ignorespace" >> ~/.bashrc
+source ~/.bashrc
+
 # 系統清理
 echo "cleaning up"
 sudo dnf clean all
@@ -94,6 +104,5 @@ sudo dnf autoremove -y
 sudo rm -rf /tmp/*
 sudo rm -rf /var/tmp/*
 sudo truncate -s 0 /var/log/*log
-
 
 echo '' > .bash_history && history -c
