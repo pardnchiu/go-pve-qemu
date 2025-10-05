@@ -243,37 +243,47 @@ func (s *Service) checkCPUArch(node string) (string, error) {
 			Flags string `json:"flags"`
 		} `json:"cpuinfo"`
 	}
-
 	if err := json.Unmarshal(output, &status); err != nil {
 		return "", fmt.Errorf("failed to parse node status: %v", err)
 	}
 
-	// * x86-64-v2 required flags
-	v2Flags := []string{"cx16", "lahf_lm", "popcnt", "sse4_1", "sse4_2", "ssse3"}
-	// * x86-64-v3 required flags
-	v3Flags := []string{"avx", "avx2", "bmi1", "bmi2", "f16c", "fma", "movbe", "xsave"}
-	// * x86-64-v4 required flags
-	v4Flags := []string{"avx512f", "avx512bw", "avx512cd", "avx512dq", "avx512vl"}
+	flagSet := make(map[string]bool)
+	for _, flag := range strings.Fields(status.CPUInfo.Flags) {
+		flagSet[flag] = true
+	}
 
 	hasAllFlags := func(required []string) bool {
 		for _, flag := range required {
-			if !strings.Contains(status.CPUInfo.Flags, flag) {
+			if !flagSet[flag] {
 				return false
 			}
 		}
 		return true
 	}
 
-	if hasAllFlags(v2Flags) {
-		if hasAllFlags(v3Flags) {
-			if hasAllFlags(v4Flags) {
-				return "x86-64-v4", nil
-			}
-			return "x86-64-v3", nil
-		}
-		return "x86-64-v2", nil
+	v2Flags := []string{"cx16", "lahf_lm", "popcnt", "sse4_1", "sse4_2", "ssse3"}
+	v2AESFlags := []string{"aes", "pclmulqdq"}
+	v3Flags := []string{"avx", "avx2", "bmi1", "bmi2", "f16c", "fma", "movbe", "lzcnt", "xsaveopt"}
+	v4Flags := []string{"avx512f", "avx512bw", "avx512cd", "avx512dq", "avx512vl"}
+
+	if !hasAllFlags(v2Flags) {
+		return "x86-64-v1", nil
 	}
-	return "x86-64-v1", nil
+
+	hasAES := hasAllFlags(v2AESFlags)
+
+	if hasAllFlags(v3Flags) {
+		if hasAllFlags(v4Flags) {
+			return "x86-64-v4", nil
+		}
+		return "x86-64-v3", nil
+	}
+
+	if hasAES {
+		return "x86-64-v2-AES", nil
+	}
+
+	return "x86-64-v2", nil
 }
 
 func (s *Service) GetClusterCPUType() (string, error) {
