@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pardnchiu/go-qemu/internal/model"
+	"github.com/pardnchiu/go-pve-qemu/internal/model"
 
 	"github.com/gin-gonic/gin"
 )

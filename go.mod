@@ -1,4 +1,4 @@
-module github.com/pardnchiu/go-qemu
+module github.com/pardnchiu/go-pve-qemu
 
 go 1.25.0
 

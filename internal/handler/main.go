@@ -7,9 +7,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/pardnchiu/go-qemu/internal/model"
-	"github.com/pardnchiu/go-qemu/internal/service"
-	"github.com/pardnchiu/go-qemu/internal/util"
+	"github.com/pardnchiu/go-pve-qemu/internal/model"
+	"github.com/pardnchiu/go-pve-qemu/internal/service"
+	"github.com/pardnchiu/go-pve-qemu/internal/util"
 
 	"github.com/gin-gonic/gin"
 )

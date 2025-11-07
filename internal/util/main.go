@@ -11,7 +11,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/pardnchiu/go-qemu/internal/model"
+	"github.com/pardnchiu/go-pve-qemu/internal/model"
 )
 
 func CheckIP(ip string) bool {
