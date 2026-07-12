@@ -1,34 +1,36 @@
 # go-pve-qemu — 技術文件
 
-> [English version](doc.md)
+> 返回 [README](./README.zh.md)
 
 ## 目錄
 
-- [部署](#部署)
+- [前置需求](#前置需求)
+- [安裝](#安裝)
 - [設定](#設定)
-- [OS 支援](#os-支援)
+- [使用方式](#使用方式)
 - [API 參考](#api-參考)
 - [SSE 事件格式](#sse-事件格式)
 - [安裝流程階段](#安裝流程階段)
 
 ---
 
-## 部署
+## 前置需求
 
-### 前置條件
+- Proxmox 主節點上已安裝 **Go ≥ 1.20**
+- 標準 Proxmox VE CLI 工具 **`qm`** 與 **`pvesh`** 可用
+- 主節點至所有遠端節點的**金鑰式 SSH 存取**（無 Passphrase）
+- 網路閘道設定使 **VMID 等於 IP 最後一個位元組**（例如 `192.168.0.X`，其中 `X` = VMID）
+- 目標 Proxmox 儲存池（`ASSIGN_STORAGE`）必須存在且為啟用狀態
 
-- Proxmox 主節點上已安裝 Go ≥ 1.20
-- 標準 Proxmox VE CLI 工具 `qm` 與 `pvesh` 可用
-- 主節點至所有遠端節點的金鑰式 SSH 存取（無 Passphrase）
-- 網路閘道設定使 VMID 等於 IP 最後一個位元組（例如 `192.168.0.X`，其中 `X` = VMID）
+## 安裝
 
-### 建置與執行
+### 原始碼建置
 
 ```bash
 git clone https://github.com/pardnchiu/go-pve-qemu.git
 cd go-pve-qemu
 cp .env.example .env
-# 設定 .env（參閱設定章節）
+# 編輯 .env（參閱設定章節）
 go build -o go-pve-qemu ./cmd/api
 ./go-pve-qemu
 ```
@@ -52,8 +54,6 @@ EnvironmentFile=/opt/go-pve-qemu/.env
 WantedBy=multi-user.target
 ```
 
----
-
 ## 設定
 
 所有設定均透過環境變數完成（啟動時由 `godotenv` 從 `.env` 載入）。
@@ -72,13 +72,13 @@ WantedBy=multi-user.target
 
 | 變數 | 預設值 | 說明 |
 |------|--------|------|
-| `ASSIGN_IP_START` | `100` | IP 範圍起始值 — 最後一位元組（最小 `100`，VMID 須 ≥ 100） |
+| `ASSIGN_IP_START` | `100` | IP 範圍起始值 — 最後一位元組（最小 `100`） |
 | `ASSIGN_IP_END` | `254` | IP 範圍結束值 — 最後一位元組（最大 `254`） |
 | `ALLOW_IPS` | `0.0.0.0` | 以逗號分隔的允許來源 IP 清單；`0.0.0.0` 允許所有來源 |
 | `VM_MAX_CPU` | 無限制 | 每台 VM 最大 vCPU 核心數（1–32） |
 | `VM_MAX_RAM` | 無限制 | 每台 VM 最大記憶體（MB） |
 | `VM_MAX_DISK` | 無限制 | 每台 VM 最大磁碟大小（GB） |
-| `VM_BALLOON_MIN` | — | Balloon 裝置最小記憶體（MB） |
+| `VM_BALLOON_MIN` | — | Balloon 裝置最小記憶體（MB）；設定後若 RAM 超過此值則啟用 Balloon |
 | `VM_ROOT_PASSWORD` | — | 透過 OS 初始化腳本注入的預設 root 密碼 |
 
 ### `.env` 範例
@@ -101,25 +101,97 @@ VM_BALLOON_MIN=2048
 VM_ROOT_PASSWORD=
 ```
 
----
+## 使用方式
 
-## OS 支援
+### 健康檢查
 
-| OS | 支援版本 | 映像來源 |
-|----|---------|---------|
-| Debian | 11、12、13 | `cloud.debian.org` |
-| Ubuntu | 20.04、22.04、24.04 | `cloud-images.ubuntu.com` |
-| RockyLinux | 8、9、10 | `dl.rockylinux.org` |
+```bash
+curl http://localhost:8080/api/health
+# 回應: ok
+```
 
-OS Cloud 映像於首次使用時下載並快取於本機。相同 OS/版本的後續安裝將直接使用已快取的映像。
+### 佈建 VM
 
-OS 初始化腳本以靜態方式從 `/sh/<os>_<version>.sh` 提供，並在 SSH 初始化期間於 VM 內部擷取執行。
+使用單一 API 呼叫即可完成完整 VM 佈建：
 
----
+```bash
+curl -X POST http://localhost:8080/api/vm/install \
+  -H "Content-Type: application/json" \
+  -d '{
+    "os": "ubuntu",
+    "version": "22.04",
+    "name": "web-01",
+    "cpu": 2,
+    "ram": 4096,
+    "disk": "40G",
+    "user": "deploy",
+    "passwd": "s3cr3t"
+  }'
+```
+
+回應為 SSE 串流，即時顯示每個階段的進度與耗時。
+
+### 列出 VM
+
+```bash
+curl http://localhost:8080/api/vm/list
+```
+
+回應包含叢集範圍的 VM 清單及各節點資源使用率。
+
+### 管理 VM 生命週期
+
+```bash
+# 啟動 VM（SSE 串流直至 SSH 就緒）
+curl -X POST http://localhost:8080/api/vm/101/start
+
+# 優雅關機
+curl -X POST http://localhost:8080/api/vm/101/shutdown
+
+# 強制停止
+curl -X POST http://localhost:8080/api/vm/101/stop
+
+# 重新啟動（SSE 串流）
+curl -X POST http://localhost:8080/api/vm/101/reboot
+
+# 刪除 VM
+curl -X POST http://localhost:8080/api/vm/101/destroy
+```
+
+### 調整資源
+
+```bash
+# 設定 vCPU
+curl -X POST http://localhost:8080/api/vm/101/set/cpu \
+  -H "Content-Type: application/json" \
+  -d '{"cpu": 4}'
+
+# 設定記憶體
+curl -X POST http://localhost:8080/api/vm/101/set/memory \
+  -H "Content-Type: application/json" \
+  -d '{"memory": 8192}'
+
+# 擴充磁碟
+curl -X POST http://localhost:8080/api/vm/101/set/disk \
+  -H "Content-Type: application/json" \
+  -d '{"disk": "10G"}'
+```
+
+### 節點遷移
+
+```bash
+curl -X POST http://localhost:8080/api/vm/101/set/node \
+  -H "Content-Type: application/json" \
+  -d '{"node": "pve2"}'
+```
+
+回應為 SSE 串流，即時顯示遷移進度。
 
 ## API 參考
 
 所有 Endpoint 均以 `/api` 為前綴。
+
+### 指令表
 
 | 方法 | 路徑 | 回應類型 | 說明 |
 |------|------|---------|------|
@@ -137,176 +209,53 @@ OS 初始化腳本以靜態方式從 `/sh/<os>_<version>.sh` 提供，並在 SSH
 | POST | `/api/vm/:id/set/disk` | `text/plain` | 擴充磁碟 |
 | POST | `/api/vm/:id/set/node` | SSE | 將 VM 遷移至另一叢集節點 |
 
----
-
-### `GET /api/health`
-
-回傳 `200 OK`，body 為 `ok`。用於存活探測。
-
----
-
-### `POST /api/vm/install`
-
-端對端完整佈建 VM。全程串流 SSE 事件。
-
-**請求 Body（JSON）**
+### `POST /api/vm/install` 請求參數
 
 | 欄位 | 類型 | 必填 | 預設值 | 說明 |
 |------|------|------|--------|------|
 | `os` | string | 是 | — | `debian`、`ubuntu` 或 `rockylinux` |
 | `version` | string | 是 | — | OS 版本（例如 `22.04`、`12`、`9`） |
-| `name` | string | 否 | 自動 | VM 名稱 |
+| `name` | string | 否 | VMID | VM 名稱 |
 | `id` | int | 否 | 自動 | VMID（100–254）；省略時自動分配 |
 | `node` | string | 否 | 主節點 | 目標 Proxmox 節點 |
 | `cpu` | int | 否 | `2` | vCPU 核心數（受 `VM_MAX_CPU` 限制） |
 | `ram` | int | 否 | `2048` | 記憶體（MB），最小 512（受 `VM_MAX_RAM` 限制） |
 | `disk` | string | 否 | `16G` | 磁碟大小（例如 `20G`），最小 `16G` |
-| `user` | string | 否 | — | SSH 使用者名稱 |
-| `passwd` | string | 否 | — | SSH 密碼 |
+| `user` | string | 否 | OS 預設 | SSH 使用者名稱（debian/ubuntu/rocky） |
+| `passwd` | string | 否 | `passwd` | SSH 密碼 |
 | `pubkey` | string | 否 | — | 欲注入的 SSH 公鑰 |
 
-**範例**
-
-```json
-{
-  "os": "ubuntu",
-  "version": "22.04",
-  "name": "web-01",
-  "cpu": 2,
-  "ram": 4096,
-  "disk": "40G",
-  "user": "deploy",
-  "passwd": "s3cr3t",
-  "pubkey": "ssh-ed25519 AAAA..."
-}
-```
-
-**SSE 串流** — 參閱 [SSE 事件格式](#sse-事件格式)
-
----
-
-### `GET /api/vm/list`
-
-回傳叢集範圍的 VM 清單及各節點資源使用率。
-
-**回應（JSON）**
-
-```json
-{
-  "success": true,
-  "vms": [
-    {
-      "vmid": 101,
-      "name": "web-01",
-      "os": "ubuntu",
-      "running": true,
-      "node": "pve1",
-      "cpu": 2,
-      "disk": 40,
-      "memory": 4096,
-      "memory_used": 1024
-    }
-  ],
-  "nodes": [
-    {
-      "node": "pve1",
-      "max_cpu": 32,
-      "max_memory": 131072,
-      "cpu": 0.12,
-      "memory": 0.31,
-      "memory_used": 40960,
-      "disk": 0.45,
-      "running": true
-    }
-  ]
-}
-```
-
----
-
-### `GET /api/vm/:id/status`
-
-以純文字回傳 `running` 或 `stopped`。
-
----
-
-### `POST /api/vm/:id/start`
-
-啟動 VM，串流 SSE 直至 SSH 可用。
-
----
-
-### `POST /api/vm/:id/stop`
-
-強制停止 VM（等同 `qm stop --skiplock`）。回傳純文字結果。
-
----
-
-### `POST /api/vm/:id/shutdown`
-
-傳送 ACPI 關機信號。回傳純文字結果。
-
----
-
-### `POST /api/vm/:id/reboot`
-
-重新啟動 VM，串流 SSE 直至 SSH 再次可用。
-
----
-
-### `POST /api/vm/:id/destroy`
-
-停止並永久刪除 VM 及所有磁碟資料（`--purge`）。回傳純文字結果。
-
----
-
-### `POST /api/vm/:id/set/cpu`
-
-**請求 Body**
+### `POST /api/vm/:id/set/cpu` 請求參數
 
 ```json
 { "cpu": 4 }
 ```
 
-有效範圍：1–32（另受 `VM_MAX_CPU` 限制）。回傳純文字結果。
+有效範圍：1–32（另受 `VM_MAX_CPU` 限制）。
 
----
-
-### `POST /api/vm/:id/set/memory`
-
-**請求 Body**
+### `POST /api/vm/:id/set/memory` 請求參數
 
 ```json
 { "memory": 8192 }
 ```
 
-單位 MB，最小 512，最大 `VM_MAX_RAM`。回傳純文字結果。
+單位 MB，最小 512，最大 `VM_MAX_RAM`。
 
----
-
-### `POST /api/vm/:id/set/disk`
-
-**請求 Body**
+### `POST /api/vm/:id/set/disk` 請求參數
 
 ```json
 { "disk": "10G" }
 ```
 
-擴充指定大小的磁碟空間。不支援磁碟縮小。回傳純文字結果。
+擴充指定大小的磁碟空間。不支援磁碟縮小。
 
----
-
-### `POST /api/vm/:id/set/node`
-
-以本機磁碟傳輸方式將 VM 遷移至另一叢集節點。串流 SSE 進度。
-
-**請求 Body**
+### `POST /api/vm/:id/set/node` 請求參數
 
 ```json
 { "node": "pve2" }
 ```
 
----
+以本機磁碟傳輸方式將 VM 遷移至另一叢集節點。
 
 ## SSE 事件格式
 
@@ -324,7 +273,7 @@ data: {"step":"<階段>","status":"<狀態>","message":"<文字>","vm_id":<id>,"
 | `vm_id` | int | VMID（出現於最終成功事件） |
 | `ip` | string | 已分配的 IP（出現於最終成功事件） |
 
-**範例串流（install）**
+### 安裝流程 SSE 範例
 
 ```
 data: {"step":"preparation > checking VMID","status":"processing","message":"[*] start VM installation"}
@@ -342,8 +291,6 @@ data: {"step":"VM initialization > finalizing","status":"success","message":"[*]
 data: {"step":"VM initialization > finalizing","status":"success","message":"[*] IP: 192.168.0.101"}
 data: {"step":"VM initialization > finalizing","status":"success","message":"[*] User: deploy"}
 ```
-
----
 
 ## 安裝流程階段
 
@@ -372,4 +319,4 @@ data: {"step":"VM initialization > finalizing","status":"success","message":"[*]
 
 ---
 
-©️ 2025 [邱敬幃 Pardn Chiu](https://linkedin.com/in/pardnchiu)
+©️ 2025 [邱敬幃 Pardn Chiu](https://www.linkedin.com/in/pardnchiu)
